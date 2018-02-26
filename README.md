@@ -14,7 +14,7 @@
 4. mm131.py 爬虫脚本；可以参考该脚本自行写爬虫入库
 5. localdb.py 数据库操作脚本
 6. auto_post.py 图片上传&wordpress发布脚本
-**7.weibo.py 采集微博图片的脚本**
+7. **weibo.py 采集微博图片的脚本**
 
 ----
 
