@@ -136,11 +136,12 @@ class WPDB():
         if thumnnail_path.startswith('http'):
             post.thumbnail=self.upload_picture(thumnnail_path)
         else:
-            post.thumbnail = self._find_media(humbnail)  # 缩略图的id
+            post.thumbnail = self._find_media(thumnnail_path)  # 缩略图的id
         try:
-            postid=self.wp.call(posts.NewPost(post))
+            self.wp.call(posts.NewPost(post))
         except Exception as e:
-            print(e)
+            print e
+
 
 
 

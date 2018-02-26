@@ -14,10 +14,11 @@ Base = declarative_base()
 class Post(Base):
     __tablename__ = 'posts'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(64), primary_key=True)
     name = Column(String(50))
     poster=Column(String(200))
     category=Column(String(50))
+    tags=Column(String(50))
     status=Column(Boolean)
 
     def __init__(self,**kwargs):
@@ -30,7 +31,7 @@ class Post(Base):
 class Picture(Base):
     __tablename__ = 'pictures'
 
-    pid = Column(Integer, primary_key=True)
+    pid = Column(String(64), primary_key=True)
     subid = Column(Integer, primary_key=True)
     url=Column(String(200))
 
@@ -38,6 +39,15 @@ class Picture(Base):
         for key,value in kwargs.items():
             setattr(self,key,value)
 
+
+class ID(Base):
+    __tablename__ = 'id_table'
+    id = Column(String(64), primary_key=True)
+    postnum = Column(Integer)
+
+    def __init__(self,**kwargs):
+        for key,value in kwargs.items():
+            setattr(self,key,value)
 
 
 # 初始化数据库连接:
@@ -60,36 +70,64 @@ class DB():
             table=Post
             if self.session.query(table).filter(table.id==id).first() is None:
                 exists=False
-        else:
-            pid=int(kwargs['pid'])
-            subid=int(kwargs['subid'])
+        elif self.type=='Picture':
+            pid=kwargs['pid']
+            subid=kwargs['subid']
             table=Picture
             if self.session.query(table).filter(table.pid==pid,table.subid==subid).first() is None:
                 exists=False
+        else:
+            id=kwargs['id']
+            table=ID
+            if self.session.query(table).filter(table.id==id).first() is None:
+                exists=False
         if not exists:
-            if self.type=='Post':
-                new_item=Post(**kwargs)
-            else:
-                new_item=Picture(**kwargs)
+            new_item=table(**kwargs)
             self.session.add(new_item)
             self.session.commit()
+        return exists
 
     def update(self,**kwargs):
         if self.type=='Post':
-            id=int(kwargs['id'])
+            id=kwargs['id']
             status=kwargs['status']
             item=self.session.query(Post).filter(Post.id==id).first()
             item.status=status
             self.session.add(item)
             self.session.commit()
-        else:
-            pass
+        elif self.type=='ID':
+            id=kwargs['id']
+            postnum=kwargs['postnum']
+            item=self.session.query(ID).filter(ID.id==id).first()
+            item.postnum=postnum
+            self.session.add(item)
+            self.session.commit()
+
 
     def get_a_item(self):
         #post=self.session.query(Post).order_by(func.rand()).first() #mysql
         post=self.session.query(Post).filter(Post.status==False).order_by(func.random()).first() #pgsql/sqlite
+        if post is None:
+            return None,None
         pictures=self.session.query(Picture).filter(Picture.pid==post.id).all()
         return post,pictures
+
+    def select(self,table,**kwargs):
+        sql='self.session.query({}).filter('.format(table)
+        its=kwargs.items()
+        argnum=len(its)
+        for idx,kv in enumerate(its):
+            k,v=kv
+            sql+='{}.{}=="{}"'.format(table,k,v)
+            if idx==argnum-1:
+                sql+=')'
+            else:
+                sql+=','
+        sql+='.all()'
+        results=eval(sql)
+        if len(results)==0:
+            results=[None]
+        return results
 
 
 
