@@ -56,7 +56,7 @@ if __name__=='__main__':
     while 1:
         try:
             if tc=='weibo':
-                wb._login()
+                upload._login()
             name=postnew()
             if name==False:
                time.sleep(60*60)
