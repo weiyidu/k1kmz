@@ -9,7 +9,22 @@ from wordpress_xmlrpc.compat import xmlrpc_client
 from wordpress_xmlrpc.methods import media, posts
 import requests
 import base64
-import os
+import os,sys
+import datetime
+import mimetypes
+import pymysql
+
+
+WP_HOST='127.0.0.1' #wordpress数据库ip
+WP_PORT=3306
+WP_USER='DBUSER' #wordpress数据库用户名
+WP_PASSWD='DBPASSWOD'#wordpress数据库密码
+WP_DB='DB' #wordpress数据库
+SITE='http://k1kmz.com' #网站地址
+SITE_USER='USER' #网站管理员用户名
+SITE_PASSWD='PASSWD' #网站管理员密码
+
+
 
 class Taxonomy():
     tax_list=[]
@@ -20,10 +35,18 @@ class Taxonomy():
         return exists
 
 
+def timenow():
+    return datetime.datetime.now()
+
 
 class WPDB():
-    #修改你的网站，还有admin账号密码
-    def __init__(self, site='http://domain.com', user='', passwd=''):
+    def __init__(self, site=SITE, user=SITE_USER, passwd=SITE_PASSWD):
+        try:
+            self.db=pymysql.connect(host=WP_HOST,port=WP_PORT,password=WP_PASSWD,user=WP_USER,database=WP_DB)
+            self.cur=self.db.cursor()
+        except Exception as e:
+            print(e)
+            sys.exit(0)
         self.wp = Client('{}/xmlrpc.php'.format(site), user, passwd)
         self.categories = Taxonomy()  # self.wp.call(taxonomies.GetTerms('category'))
         self.tags = Taxonomy()  # self.wp.call(taxonomies.GetTerms('post_tag'))
@@ -90,7 +113,6 @@ class WPDB():
         return taxid
 
     def upload_picture(self,filepath,name=None,mimetype=None):
-        print filepath
         if name is None:
             name=filepath.split('/')[-1]
         if mimetype is None:
@@ -133,15 +155,43 @@ class WPDB():
             'post_tag': tag #['test', 'beauty'],  文章所属标签，没有则自动创建
             ,'category': category #['校园美女']  文章所属分类，没有则自动创建
         }
-        if thumnnail_path.startswith('http'):
-            post.thumbnail=self.upload_picture(thumnnail_path)
-        else:
-            post.thumbnail = self._find_media(thumnnail_path)  # 缩略图的id
+        # if thumnnail_path.startswith('http'):
+        #     post.thumbnail=self.upload_picture(thumnnail_path)
+        # else:
+        #     post.thumbnail = self._find_media(thumnnail_path)  # 缩略图的id
+        post.thumbnail=self.add_external_image(thumnnail_path)
         try:
             self.wp.call(posts.NewPost(post))
         except Exception as e:
             print e
 
+    def add_external_image(self,image):
+        title=base64.b64encode(image)
+        mimetype=mimetypes.guess_type(image)[0]
+        name=os.path.basename(image)
+        query_sql='select id from wp_posts where post_title="{}";'.format(title)
+        result_num=self.cur.execute(query_sql)
+        if result_num!=0:
+            attachment_id=self.cur.fetchone()[0]
+            return attachment_id
+        else:
+            sql="INSERT INTO wp_posts(post_author,post_date,post_content,post_title,post_excerpt,post_status\
+            ,comment_status,ping_status,post_name,to_ping,pinged,post_modified,post_content_filtered,post_parent\
+            ,menu_order,post_type,comment_count,post_mime_type,guid) \
+            VALUES ('1','{time}','','{title}','','inherit','open','open','{title}','','','{time}','','0','0','attachment','0','{mimetype}','{image}')"\
+            .format(time=timenow(),title=title,mimetype=mimetype,image=image)
+            self.cur.execute(sql)
+            self.db.commit()
+            result_num=self.cur.execute(query_sql)
+            if result_num!=0:
+                attachment_id=self.cur.fetchone()[0]
+                meta_value='a:4:{s:5:"width";i:0;s:6:"height";i:0;s:4:"file";s:28:"%(name)s";s:5:"sizes";a:1:{s:4:"full";a:3:{s:5:"width";i:0;s:6:"height";i:0;s:4:"file";s:28:"%(name)s";}}}'%{'name':name}
+                upsql='''insert into wp_postmeta(post_id,meta_key,meta_value) values({},'_wp_attachment_metadata','{}');'''.format(attachment_id,meta_value)
+                self.cur.execute(upsql)
+                self.db.commit()
+                return attachment_id
+            else:
+                return None
 
 
 
@@ -149,5 +199,8 @@ class WPDB():
 
 
 if __name__=='__main__':
-    wp = WPDB(site='http://domain', user='', passwd='')
-    wp.upload_picture('http://img1.mm131.me/pic/905/m905.jpg')
+    wp = WPDB(site=SITE, user=SITE_USER, passwd=SITE_PASSWD)
+    #wp.create_post(title='测试',content='ojbk',tag=['test','ojbk'],category=['test'],thumnnail_path='122.png')
+    print wp.add_external_image('https://farm4.staticflickr.com/3701/11891185725_f79a9ae876_b.jpg')
+    #print(wp.upload_picture(filepath = 'C:/Users/Administrator/Desktop/python/pic/122.png'))
+    #wp.upload_picture('http://img1.mm131.me/pic/905/m905.jpg')

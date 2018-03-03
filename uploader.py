@@ -1,5 +1,5 @@
 # encoding:utf8
-import requests
+import re
 import json
 import requests
 import binascii
@@ -9,6 +9,7 @@ import cStringIO as StringIO
 import os
 import sys
 import time
+from flickr import FlickrAPI
 from PIL import Image
 from ocr import captch
 try:
@@ -23,7 +24,7 @@ except:
 
 
 class Weibo:
-    #修改微博的账号密码
+    #微博账号密码
     def __init__(self,username='',password=''):
         self.cookie_file = 'wbcookies'
         self.session=requests.Session()
@@ -145,14 +146,16 @@ class Weibo:
             b = base64.b64encode(open(image_path,'rb').read())
         data = {'b64_data': b}
         headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.108 Safari/537.36'}
-        tourl = self.session.post(image_url,data=data,headers=headers).url
+        tourl = self.session.post(image_url,data=data,headers=headers,timeout=10).url
         image_id = re.findall('pid=(.*)',tourl)[0]
         os.remove(filename)
         return 'http://ww3.sinaimg.cn/large/%s' % image_id
 
     def _login(self):
-        with open(self.cookie_file,'rb') as f:
-            cookies_dict=pickle.load(f)
+        cookies_dict={}
+        if os.path.exists(self.cookie_file):
+            with open(self.cookie_file,'rb') as f:
+                cookies_dict=pickle.load(f)
         # rc=''
         # cookies_dict={}
         # for line in rc.split(';'):
@@ -184,11 +187,95 @@ class Weibo:
         return url
 
 
+
+class Flickr():
+    #Flickr api_key和api_secret，申请地址：https://www.flickr.com/services/apps/create/apply/
+    def __init__(self,api_key='',api_secret=''):
+        self.base='https://farm{farmid}.staticflickr.com/{serverid}/{id}_{secret}_o.{minetype}'
+        try:
+            with open('flickr.token','r') as f:
+                token=pickle.load(f)
+            self.flickr = FlickrAPI(api_key, api_secret,oauth_token=token['oauth_token'],oauth_token_secret=token['oauth_token_secret'])
+        except:
+            print 'first run!'
+            f = FlickrAPI(api_key=api_key,api_secret=api_secret,callback_url='oob')
+            auth_props = f.get_authentication_tokens(perms=u'write')
+            auth_url = auth_props['auth_url']
+            oauth_token = auth_props['oauth_token']
+            oauth_token_secret = auth_props['oauth_token_secret']
+            print('open the url in browser and input the code:\n'+auth_url)
+            oauth_verifier=self.toUnicodeOrBust(raw_input('verifier code:'))
+            f2 = FlickrAPI(api_key=api_key,api_secret=api_secret,oauth_token=oauth_token,oauth_token_secret=oauth_token_secret)
+            authorized_tokens = f2.get_auth_tokens(oauth_verifier)
+            final_oauth_token = authorized_tokens['oauth_token']
+            final_oauth_token_secret = authorized_tokens['oauth_token_secret']
+            token={'oauth_token':final_oauth_token,'oauth_token_secret':final_oauth_token_secret}
+            with open('flickr.token','w') as f:
+                pickle.dump(token,f)
+            self.flickr = FlickrAPI(api_key=api_key,api_secret=api_secret,oauth_token=final_oauth_token,oauth_token_secret=final_oauth_token_secret)
+
+    def toUnicodeOrBust(self,obj, encoding='utf-8'):
+        if isinstance(obj, basestring):
+            if not isinstance(obj, unicode):
+                obj = unicode(obj, encoding)
+        return obj
+
+
+    def upload(self,image_path):
+        if image_path.startswith('http'):
+            headers={
+                'Referer':'http://www.mm131.com/'
+                ,'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.108 Safari/537.36'
+                }
+            r=requests.get(image_path,headers=headers)
+            img_cont=r.content
+            filename=base64.b64encode(image_path)+'.'+image_path.split('/')[-1].split('.')[-1]
+            with open(filename,'wb') as f:
+                f.write(img_cont)
+        else:
+            filename=image_path
+        try:
+            with open(filename,'rb') as img:
+                photo_id = self.flickr.post(files=img)
+            os.remove(filename)
+            return photo_id
+        except Exception as e:
+            print e
+            os.remove(filename)
+            return False
+
+    def get_image(self,image_path):
+        photo_info=self.upload(image_path)
+        if photo_info==False:
+            print 'upload image fail!'
+            return False
+        else:
+            if photo_info['stat']=='ok':
+                photo_id=photo_info['photoid']
+                info=self.flickr.post('flickr.photos.getInfo',{'photo_id':photo_id})
+                farmid=info['photo']['farm']
+                serverid=info['photo']['server']
+                id=info['photo']['id']
+                secret=info['photo']['originalsecret']
+                minetype=info['photo']['originalformat']
+                imgurl=self.base.format(farmid=farmid,serverid=serverid,id=id,secret=secret,minetype=minetype)
+                return imgurl
+            else:
+                print 'upload image fail!'
+                return False
+
+
+
+
+
+
+
 if __name__ == '__main__':
-    filename = "https://tva3.sinaimg.cn/crop.0.0.711.400/90eb2137ly1fo91tatprdj20jr0b4di0.jpg"
-    username = ''
-    password = ''
-    wb=Weibo(username=username,password=password)
-    print(wb.get_image(filename))
+    filename = "http://img1.mm131.me/pic/2330/1.jpg"
+    # wb=Weibo(username=username,password=password)
+    # print(wb.get_image(filename))
+    flicker=Flickr()
+    imgurl=flicker.get_image(filename)
+    print(imgurl)
 
 
