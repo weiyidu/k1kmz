@@ -152,10 +152,8 @@ class Weibo:
         return 'http://ww3.sinaimg.cn/large/%s' % image_id
 
     def _login(self):
-        cookies_dict={}
-        if os.path.exists(self.cookie_file):
-            with open(self.cookie_file,'rb') as f:
-                cookies_dict=pickle.load(f)
+        with open(self.cookie_file,'rb') as f:
+            cookies_dict=pickle.load(f)
         # rc=''
         # cookies_dict={}
         # for line in rc.split(';'):
