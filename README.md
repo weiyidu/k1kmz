@@ -36,6 +36,7 @@
     - 如果用**微博图床**，则按照上面的脚本介绍设置了就行
     - 如果用**flickr**图床，在uploader设置了api_key和api_secret之后，第一次运行`python auto_post.py`会让你用浏览器打开一个网址，然后获取token
 2. 然后直接运行`auto_post.py`脚本，开始发布：`python auto_post.py`
+    - **确保你的wordpress的服务器MySQL可远程连接并开放了3306端口**
 
 就是这么简单
 
