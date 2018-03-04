@@ -94,9 +94,9 @@ if __name__=='__main__':
         task.join()
     while 1:
         url,title,cate=result_queue.get()
-        id=int(id_reg.findall(url)[0])
+        id=id_reg.findall(url)[0]
         poster='http://img1.mm131.me/pic/{}/0.jpg'.format(id)
-        post_db.insertnew(id=id,name=title,poster=poster,category=cate,status=False)
+        post_db.insertnew(id=id,name=title,poster=poster,category=cate,tags=cate,status=False)
         max_subid=get_max_subid(url)
         if max_subid!=False:
             for subid in range(1,max_subid+1):
@@ -106,7 +106,4 @@ if __name__=='__main__':
                 picture_db.insertnew(pid=id,subid=subid,url=pic)
         if result_queue.empty():
             break
-
-
-
 
