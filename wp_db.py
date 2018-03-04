@@ -185,7 +185,11 @@ class WPDB():
             result_num=self.cur.execute(query_sql)
             if result_num!=0:
                 attachment_id=self.cur.fetchone()[0]
-                meta_value='a:4:{s:5:"width";i:0;s:6:"height";i:0;s:4:"file";s:28:"%(name)s";s:5:"sizes";a:1:{s:4:"full";a:3:{s:5:"width";i:0;s:6:"height";i:0;s:4:"file";s:28:"%(name)s";}}}'%{'name':name}
+                if 'sinaimg.cn' in image:
+                    s='36'
+                else:
+                    s='28'
+                meta_value='a:4:{s:5:"width";i:0;s:6:"height";i:0;s:4:"file";s:%(s)s:"%(name)s";s:5:"sizes";a:1:{s:4:"full";a:3:{s:5:"width";i:0;s:6:"height";i:0;s:4:"file";s:%(s)s:"%(name)s";}}}'%{'name':name,'s':s}
                 upsql='''insert into wp_postmeta(post_id,meta_key,meta_value) values({},'_wp_attachment_metadata','{}');'''.format(attachment_id,meta_value)
                 self.cur.execute(upsql)
                 self.db.commit()
